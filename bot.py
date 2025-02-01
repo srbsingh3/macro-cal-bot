@@ -171,8 +171,21 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    # Start the Bot
-    application.run_polling()
+    # Get port and url from environment
+    PORT = int(os.getenv('PORT', '8443'))
+    APP_URL = os.getenv('APP_URL')  # Your Render URL like "https://your-app-name.onrender.com"
+
+    if APP_URL:
+        # Use webhooks if APP_URL is set (production)
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=f"{APP_URL}/webhook",
+            secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token')  # Optional but recommended
+        )
+    else:
+        # Use polling locally
+        application.run_polling()
 
 if __name__ == '__main__':
     main()

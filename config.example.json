@@ -1,7 +1,10 @@
 {
-	"telegram_bot_token": "your_bot_token_here",
+	"telegram_bot_token": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
 	"nutritionix": {
 		"app_id": "your_app_id_here",
 		"api_key": "your_api_key_here"
+	},
+	"api_ninjas": {
+		"api_key": "YOUR_API_NINJAS_KEY_HERE"
 	}
 }
