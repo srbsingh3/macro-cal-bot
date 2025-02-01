@@ -4,20 +4,23 @@ import requests
 from google.cloud import vision
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from dotenv import load_dotenv
 
-# Load config
-try:
-    with open('config.json') as f:
-        config = json.load(f)
-except FileNotFoundError:
-    print("Please create a config.json file based on config.example.json")
-    exit(1)
+# Load environment variables
+load_dotenv()
 
-# Bot token
-BOT_TOKEN = config['telegram_bot_token']
+# Replace config loading with environment variables
+BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+API_NINJAS_KEY = os.getenv('API_NINJAS_KEY')
 
 # Initialize Google Cloud Vision client
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'vision-api-credentials.json'
+if os.getenv('GOOGLE_CREDENTIALS'):
+    # Create credentials file from environment variable
+    credentials_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS'))
+    with open('google_credentials.json', 'w') as f:
+        json.dump(credentials_dict, f)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'google_credentials.json'
+
 client = vision.ImageAnnotatorClient()
 
 COMMON_SERVING_SIZES = {
@@ -35,7 +38,7 @@ def get_nutrition_data(food_name):
     """Get nutritional information from API Ninjas with estimated serving size"""
     api_url = 'https://api.api-ninjas.com/v1/nutrition?query={}'.format(food_name)
     headers = {
-        'X-Api-Key': config['api_ninjas']['api_key']
+        'X-Api-Key': API_NINJAS_KEY
     }
     
     try:
