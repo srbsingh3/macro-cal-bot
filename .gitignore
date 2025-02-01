@@ -2,6 +2,7 @@
 config.json
 vision-api-credentials.json
 firebase_credentials.json
+logo.jpg
 *.pem
 *.key
 .env
