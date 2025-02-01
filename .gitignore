@@ -1,0 +1,30 @@
+# Credentials and Secrets
+config.json
+vision-api-credentials.json
+firebase_credentials.json
+*.pem
+*.key
+.env
+credentials/
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
