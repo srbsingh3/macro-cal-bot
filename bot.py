@@ -199,8 +199,17 @@ async def handle_photo(update: Update, context: CallbackContext):
             "Please try again with a different photo."
         )
 
+async def error_handler(update: Update, context: CallbackContext) -> None:
+    """Log Errors caused by Updates."""
+    print(f"Update {update} caused error {context.error}")
+    if update and update.effective_message:
+        await update.effective_message.reply_text(
+            "Sorry, something went wrong. Please try again later."
+        )
+
 async def start(update: Update, context: CallbackContext):
     """Send a message when the command /start is issued."""
+    print(f"Received /start command from user {update.effective_user.id}")
     welcome_message = (
         "👋 Welcome to the Food Nutrition Bot!\n\n"
         "Send me a photo of any food item, and I'll tell you its nutritional information.\n\n"
@@ -210,7 +219,11 @@ async def start(update: Update, context: CallbackContext):
         "Just send a clear photo of a single food item, and I'll do my best to identify it "
         "and provide you with detailed nutritional facts."
     )
-    await update.message.reply_text(welcome_message)
+    try:
+        await update.message.reply_text(welcome_message)
+        print("Sent welcome message successfully")
+    except Exception as e:
+        print(f"Error sending welcome message: {str(e)}")
 
 async def my_history(update: Update, context: CallbackContext):
     """Show user their food logging history"""
@@ -273,10 +286,10 @@ async def my_stats(update: Update, context: CallbackContext):
         await update.message.reply_text("Sorry, couldn't fetch your stats right now.")
 
 def main():
-    """Start the bot."""
     try:
         print("Starting bot application...")
         application = Application.builder().token(BOT_TOKEN).build()
+        print(f"Using bot token: {BOT_TOKEN[:5]}...")
 
         # Add handlers
         print("Adding command handlers...")
@@ -289,21 +302,25 @@ def main():
         print("Adding error handler...")
         application.add_error_handler(error_handler)
 
-        PORT = int(os.getenv('PORT', '8443'))  # Changed port to 8443
+        PORT = int(os.getenv('PORT', '8443'))
         APP_URL = os.getenv('APP_URL')
         
         print(f"Configuration - Port: {PORT}, URL: {APP_URL}")
 
         if APP_URL:
             print(f"Starting webhook on {APP_URL}/webhook")
-            application.run_webhook(
-                listen="0.0.0.0",
-                port=PORT,
-                url_path="webhook",  # Changed from webhook_path
-                webhook_url=f"{APP_URL}/webhook",
-                allowed_updates=["message", "callback_query"],
-                drop_pending_updates=True
-            )
+            try:
+                application.run_webhook(
+                    listen="0.0.0.0",
+                    port=PORT,
+                    url_path="webhook",
+                    webhook_url=f"{APP_URL}/webhook",
+                    allowed_updates=["message", "callback_query"],
+                    drop_pending_updates=True
+                )
+                print("Webhook started successfully")
+            except Exception as e:
+                print(f"Error starting webhook: {str(e)}")
         else:
             print("Starting polling mode...")
             application.run_polling()
