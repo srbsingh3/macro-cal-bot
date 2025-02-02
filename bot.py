@@ -5,6 +5,10 @@ from google.cloud import vision
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials, firestore
+from datetime import datetime
+from supabase import create_client
 
 # Load environment variables
 load_dotenv()
@@ -12,6 +16,10 @@ load_dotenv()
 # Replace config loading with environment variables
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 API_NINJAS_KEY = os.getenv('API_NINJAS_KEY')
+
+# Add these environment variables
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 # Initialize Google Cloud Vision client
 if os.getenv('GOOGLE_CREDENTIALS'):
@@ -22,6 +30,9 @@ if os.getenv('GOOGLE_CREDENTIALS'):
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'google_credentials.json'
 
 client = vision.ImageAnnotatorClient()
+
+# Initialize Supabase client
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 COMMON_SERVING_SIZES = {
     "apple": 182,  # medium apple
@@ -112,7 +123,9 @@ def process_image(photo_url):
 
 async def handle_photo(update: Update, context: CallbackContext):
     try:
+        user = update.message.from_user
         user_id = update.message.chat_id
+        
         photo = update.message.photo[-1].file_id
         print(f"Received photo with file_id: {photo}")
         
@@ -124,6 +137,25 @@ async def handle_photo(update: Update, context: CallbackContext):
         print(f"Processed food data: {food_data}")
         
         if food_data:
+            # Store successful identification in Supabase
+            data = {
+                'user_id': str(user_id),
+                'user_name': user.first_name,
+                'timestamp': datetime.utcnow().isoformat(),
+                'food_identified': food_data['food'],
+                'serving_size': food_data['serving_size'],
+                'fat': food_data['fat'],
+                'carbs': food_data['carbs'],
+                'fiber': food_data['fiber'],
+                'sugar': food_data['sugar'],
+                'sodium': food_data['sodium'],
+                'potassium': food_data['potassium'],
+                'cholesterol': food_data['cholesterol'],
+                'success': True
+            }
+            
+            supabase.table('food_logs').insert(data).execute()
+            
             message = (
                 f"🍽 Identified Food: {food_data['food'].title()}\n"
                 f"\n📊 Nutritional Information:\n"
@@ -140,6 +172,16 @@ async def handle_photo(update: Update, context: CallbackContext):
             )
             await update.message.reply_text(message)
         else:
+            # Log failed attempts in Supabase
+            data = {
+                'user_id': str(user_id),
+                'user_name': user.first_name,
+                'timestamp': datetime.utcnow().isoformat(),
+                'success': False
+            }
+            
+            supabase.table('food_logs').insert(data).execute()
+            
             await update.message.reply_text(
                 "Sorry, I couldn't identify the food item or get its nutritional information. "
                 "Please make sure the image is clear and shows a single food item."
@@ -157,10 +199,73 @@ async def start(update: Update, context: CallbackContext):
     welcome_message = (
         "👋 Welcome to the Food Nutrition Bot!\n\n"
         "Send me a photo of any food item, and I'll tell you its nutritional information.\n\n"
+        "Available commands:\n"
+        "/history - See your recent food logs\n"
+        "/stats - View your usage statistics\n\n"
         "Just send a clear photo of a single food item, and I'll do my best to identify it "
         "and provide you with detailed nutritional facts."
     )
     await update.message.reply_text(welcome_message)
+
+async def my_history(update: Update, context: CallbackContext):
+    """Show user their food logging history"""
+    try:
+        user_id = str(update.message.chat_id)
+        
+        # Get last 5 successful food logs for this user
+        response = supabase.table('food_logs')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .eq('success', True)\
+            .order('timestamp', desc=True)\
+            .limit(5)\
+            .execute()
+        
+        if response.data:
+            message = "🗓 Your Recent Food History:\n\n"
+            for log in response.data:
+                food = log['food_identified']
+                date = datetime.fromisoformat(log['timestamp']).strftime('%Y-%m-%d %H:%M')
+                message += f"• {food} (logged on {date})\n"
+        else:
+            message = "You haven't logged any foods yet!"
+            
+        await update.message.reply_text(message)
+        
+    except Exception as e:
+        print(f"Error in my_history: {str(e)}")
+        await update.message.reply_text("Sorry, couldn't fetch your history right now.")
+
+async def my_stats(update: Update, context: CallbackContext):
+    """Show user their statistics"""
+    try:
+        user_id = str(update.message.chat_id)
+        
+        # Get total logs and success rate
+        response = supabase.table('food_logs')\
+            .select('success')\
+            .eq('user_id', user_id)\
+            .execute()
+        
+        if response.data:
+            total_logs = len(response.data)
+            successful_logs = sum(1 for log in response.data if log['success'])
+            success_rate = (successful_logs / total_logs) * 100
+            
+            message = (
+                f"📊 Your Stats:\n\n"
+                f"Total photos sent: {total_logs}\n"
+                f"Successfully identified: {successful_logs}\n"
+                f"Success rate: {success_rate:.1f}%"
+            )
+        else:
+            message = "You haven't used the bot yet! Send me a food photo to get started."
+            
+        await update.message.reply_text(message)
+        
+    except Exception as e:
+        print(f"Error in my_stats: {str(e)}")
+        await update.message.reply_text("Sorry, couldn't fetch your stats right now.")
 
 def main():
     """Start the bot."""
@@ -170,18 +275,21 @@ def main():
     # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    application.add_handler(CommandHandler("history", my_history))
+    application.add_handler(CommandHandler("stats", my_stats))
 
     # Get port and url from environment
     PORT = int(os.getenv('PORT', '8443'))
-    APP_URL = os.getenv('APP_URL')  # Your Render URL like "https://your-app-name.onrender.com"
+    APP_URL = os.getenv('APP_URL')
 
     if APP_URL:
         # Use webhooks if APP_URL is set (production)
         application.run_webhook(
-            listen="0.0.0.0",
+            listen="0.0.0.0",  # Listen on all available interfaces
             port=PORT,
             webhook_url=f"{APP_URL}/webhook",
-            secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token')  # Optional but recommended
+            secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token'),
+            drop_pending_updates=True  # Optional: drops updates that occurred while bot was offline
         )
     else:
         # Use polling locally

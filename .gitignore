@@ -1,13 +1,12 @@
 # Credentials and Secrets
 config.json
 vision-api-credentials.json
-firebase_credentials.json
-logo.jpg
 *.pem
 *.key
 .env
 credentials/
 secrets/
+logo.jpg
 
 # Python
 __pycache__/
@@ -15,6 +14,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Virtual Environment (keep these even if not using venv now)
 venv/
 ENV/
 env/
