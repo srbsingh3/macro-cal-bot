@@ -124,6 +124,11 @@ async def handle_photo(update: Update, context: CallbackContext):
         user = update.message.from_user
         user_id = update.message.chat_id
         
+        # Create a full name by combining first and last name (if available)
+        full_name = user.first_name
+        if user.last_name:
+            full_name += f" {user.last_name}"
+        
         photo = update.message.photo[-1].file_id
         print(f"Received photo with file_id: {photo}")
         
@@ -138,7 +143,8 @@ async def handle_photo(update: Update, context: CallbackContext):
             # Store successful identification in Supabase
             data = {
                 'user_id': str(user_id),
-                'user_name': user.first_name,
+                'user_name': full_name,  # Combined first and last name
+                'username': user.username,  # @handle
                 'timestamp': datetime.utcnow().isoformat(),
                 'food_identified': food_data['food'],
                 'serving_size': food_data['serving_size'],
@@ -173,7 +179,8 @@ async def handle_photo(update: Update, context: CallbackContext):
             # Log failed attempts in Supabase
             data = {
                 'user_id': str(user_id),
-                'user_name': user.first_name,
+                'user_name': full_name,  # Combined first and last name
+                'username': user.username,  # @handle
                 'timestamp': datetime.utcnow().isoformat(),
                 'success': False
             }
@@ -277,17 +284,16 @@ def main():
     application.add_handler(CommandHandler("stats", my_stats))
 
     # Get port and url from environment
-    PORT = int(os.getenv('PORT', '8443'))
+    PORT = int(os.getenv('PORT', '10000'))  # Changed default port
     APP_URL = os.getenv('APP_URL')
 
     if APP_URL:
         # Use webhooks if APP_URL is set (production)
         application.run_webhook(
-            listen="0.0.0.0",  # Listen on all available interfaces
+            listen="0.0.0.0",
             port=PORT,
             webhook_url=f"{APP_URL}/webhook",
-            secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token'),
-            drop_pending_updates=True  # Optional: drops updates that occurred while bot was offline
+            secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token')
         )
     else:
         # Use polling locally
