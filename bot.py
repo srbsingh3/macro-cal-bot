@@ -289,7 +289,7 @@ def main():
         print("Adding error handler...")
         application.add_error_handler(error_handler)
 
-        PORT = int(os.getenv('PORT', '10000'))
+        PORT = int(os.getenv('PORT', '8443'))  # Changed port to 8443
         APP_URL = os.getenv('APP_URL')
         
         print(f"Configuration - Port: {PORT}, URL: {APP_URL}")
@@ -299,9 +299,9 @@ def main():
             application.run_webhook(
                 listen="0.0.0.0",
                 port=PORT,
+                url_path="webhook",  # Changed from webhook_path
                 webhook_url=f"{APP_URL}/webhook",
-                webhook_path="/webhook",
-                secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token'),
+                allowed_updates=["message", "callback_query"],
                 drop_pending_updates=True
             )
         else:
