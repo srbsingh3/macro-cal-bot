@@ -275,7 +275,6 @@ async def my_stats(update: Update, context: CallbackContext):
 def main():
     """Start the bot."""
     try:
-        # Create the Application and pass it your bot's token
         print("Starting bot application...")
         application = Application.builder().token(BOT_TOKEN).build()
 
@@ -285,31 +284,33 @@ def main():
         application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
         application.add_handler(CommandHandler("history", my_history))
         application.add_handler(CommandHandler("stats", my_stats))
+        
+        # Add error handler
+        print("Adding error handler...")
+        application.add_error_handler(error_handler)
 
-        # Get port and url from environment
         PORT = int(os.getenv('PORT', '10000'))
         APP_URL = os.getenv('APP_URL')
         
         print(f"Configuration - Port: {PORT}, URL: {APP_URL}")
 
         if APP_URL:
-            print("Starting webhook mode...")
-            print(f"Webhook URL will be: {APP_URL}/webhook")
-            # Use webhooks if APP_URL is set (production)
+            print(f"Starting webhook on {APP_URL}/webhook")
             application.run_webhook(
                 listen="0.0.0.0",
                 port=PORT,
                 webhook_url=f"{APP_URL}/webhook",
-                secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token')
+                webhook_path="/webhook",
+                secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token'),
+                drop_pending_updates=True
             )
         else:
             print("Starting polling mode...")
-            # Use polling locally
             application.run_polling()
             
     except Exception as e:
         print(f"Error starting bot: {str(e)}")
-        raise  # Re-raise the exception for Render's logs
+        raise
 
 if __name__ == '__main__':
     print("Bot script starting...")
