@@ -288,11 +288,11 @@ def main():
     APP_URL = os.getenv('APP_URL')
 
     if APP_URL:
-        # Use webhooks if APP_URL is set (production)
+        print("Starting webhook mode...")
         application.run_webhook(
             listen="0.0.0.0",
             port=PORT,
-            webhook_url=f"{APP_URL}/webhook",
+            webhook_url=f"{APP_URL}/webhook",  # This will add the single slash
             secret_token=os.getenv('WEBHOOK_SECRET', 'your-secret-token')
         )
     else:
